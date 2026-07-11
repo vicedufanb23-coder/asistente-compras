@@ -6,7 +6,7 @@ import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
 import StatusBar from '@/components/StatusBar';
 import { guardarLocal, leerLocal, generarId, sincronizarConNube } from '@/lib/storage';
-import { obtenerTasaBCV, convertirVesAUsd } from '@/lib/bcv';
+import { obtenerTasaBCV, convertirVesAUsd, convertirUsdAVes } from '@/lib/bcv';
 
 const STORAGE_KEY = 'verduras_lista';
 
@@ -19,6 +19,7 @@ export default function VerdurasPage() {
   const [showForm, setShowForm] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [monedaInput, setMonedaInput] = useState('VES'); // VES o USD
   const recognitionRef = useRef(null);
 
   // Cargar datos locales al montar
@@ -86,15 +87,22 @@ export default function VerdurasPage() {
 
     const precio = parseFloat(precioKg);
     const peso = parseFloat(pesoKg);
-    const subtotal = parseFloat((precio * peso).toFixed(2));
+
+    let subtotalVes;
+    if (monedaInput === 'USD') {
+      const subtotalUsd = precio * peso;
+      subtotalVes = tasaBcv > 0 ? convertirUsdAVes(subtotalUsd, tasaBcv) : 0;
+    } else {
+      subtotalVes = precio * peso;
+    }
 
     const nuevoItem = {
       id: generarId(),
       nombre: nombre.trim(),
       precio_kg: precio,
       peso_kg: peso,
-      subtotal,
-      moneda: 'VES',
+      subtotal: parseFloat(subtotalVes.toFixed(2)),
+      moneda: monedaInput,
       created_at: new Date().toISOString(),
     };
 
@@ -229,7 +237,7 @@ export default function VerdurasPage() {
                   className="text-xs mb-1 block"
                   style={{ color: 'var(--text-muted)' }}
                 >
-                  Precio / Kg (Bs)
+                  Precio / Kg ({monedaInput === 'USD' ? '$' : 'Bs'})
                 </label>
                 <input
                   type="number"
@@ -262,6 +270,61 @@ export default function VerdurasPage() {
               </div>
             </div>
 
+            <div>
+              <label
+                className="text-xs mb-1 block"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Moneda de Entrada
+              </label>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setMonedaInput('USD')}
+                  className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    background:
+                      monedaInput === 'USD'
+                        ? 'rgba(59, 130, 246, 0.2)'
+                        : 'var(--surface-glass)',
+                    color:
+                      monedaInput === 'USD'
+                        ? 'var(--supermercado)'
+                        : 'var(--text-muted)',
+                    border: `1px solid ${
+                      monedaInput === 'USD'
+                        ? 'rgba(59, 130, 246, 0.4)'
+                        : 'var(--border)'
+                    }`,
+                  }}
+                >
+                  $ USD
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMonedaInput('VES')}
+                  className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    background:
+                      monedaInput === 'VES'
+                        ? 'rgba(34, 197, 94, 0.2)'
+                        : 'var(--surface-glass)',
+                    color:
+                      monedaInput === 'VES'
+                        ? 'var(--verduras)'
+                        : 'var(--text-muted)',
+                    border: `1px solid ${
+                      monedaInput === 'VES'
+                        ? 'rgba(34, 197, 94, 0.4)'
+                        : 'var(--border)'
+                    }`,
+                  }}
+                >
+                  Bs VES
+                </button>
+              </div>
+            </div>
+
             {/* Preview del subtotal */}
             {precioKg && pesoKg && (
               <div
@@ -278,7 +341,18 @@ export default function VerdurasPage() {
                   className="text-lg font-bold"
                   style={{ color: 'var(--verduras)' }}
                 >
-                  Bs {(parseFloat(precioKg || 0) * parseFloat(pesoKg || 0)).toFixed(2)}
+                  {(() => {
+                    const precio = parseFloat(precioKg || 0);
+                    const peso = parseFloat(pesoKg || 0);
+                    const subtotal = precio * peso;
+                    if (monedaInput === 'USD') {
+                      const vesVal = tasaBcv > 0 ? subtotal * tasaBcv : 0;
+                      return `$ ${subtotal.toFixed(2)} / Bs ${vesVal.toFixed(2)}`;
+                    } else {
+                      const usdVal = tasaBcv > 0 ? subtotal / tasaBcv : 0;
+                      return `Bs ${subtotal.toFixed(2)} / $ ${usdVal.toFixed(2)}`;
+                    }
+                  })()}
                 </span>
               </div>
             )}
@@ -335,7 +409,7 @@ export default function VerdurasPage() {
                     </p>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       <Scale size={10} className="inline mr-1" />
-                      {item.peso_kg} kg × Bs {item.precio_kg.toFixed(2)}/kg
+                      {item.peso_kg} kg × {item.moneda === 'USD' ? '$' : 'Bs'} {item.precio_kg.toFixed(2)}/kg
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

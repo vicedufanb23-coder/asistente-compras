@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Plus, Trash2, ArrowLeft, Bell, BellOff, Check,
-  Clock, Calendar, Volume2, ClipboardList
+  Clock, Calendar, Volume2, ClipboardList, Mic, MicOff
 } from 'lucide-react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
@@ -412,7 +412,7 @@ export default function ActividadesPage() {
                     }`,
                   }}
                 >
-                  <Plus size={18} className={isListeningTitle ? 'hidden' : ''} style={{ transform: 'rotate(45deg)' }} />
+                  {isListeningTitle ? <MicOff size={18} /> : <Mic size={18} />}
                 </button>
               )}
             </div>
@@ -456,7 +456,7 @@ export default function ActividadesPage() {
                     }`,
                   }}
                 >
-                  <Plus size={18} className={isListeningDesc ? 'hidden' : ''} style={{ transform: 'rotate(45deg)' }} />
+                  {isListeningDesc ? <MicOff size={18} /> : <Mic size={18} />}
                 </button>
               )}
             </div>

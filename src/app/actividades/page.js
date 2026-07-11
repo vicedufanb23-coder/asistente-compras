@@ -23,6 +23,11 @@ export default function ActividadesPage() {
   const workerRef = useRef(null);
   const alertasMostradasRef = useRef(new Set());
 
+  const [isListeningTitle, setIsListeningTitle] = useState(false);
+  const [isListeningDesc, setIsListeningDesc] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const recognitionRef = useRef(null);
+
   // Inicializar Worker y cargar datos
   useEffect(() => {
     const saved = leerLocal(STORAGE_KEY, []);
@@ -31,6 +36,12 @@ export default function ActividadesPage() {
     // Fecha por defecto: hoy
     const hoy = new Date().toISOString().split('T')[0];
     setFecha(hoy);
+
+    // Check speech recognition support
+    const SpeechRecognition =
+      typeof window !== 'undefined' &&
+      (window.SpeechRecognition || window.webkitSpeechRecognition);
+    setSpeechSupported(!!SpeechRecognition);
 
     // Pedir permisos de notificación
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
@@ -89,6 +100,62 @@ export default function ActividadesPage() {
       data: items,
     });
   }, [items]);
+
+  // ==========================================
+  // SPEECH-TO-TEXT (Dictado por voz nativo)
+  // ==========================================
+  const toggleDictado = (target) => {
+    if (target === 'title' && isListeningTitle) {
+      recognitionRef.current?.stop();
+      setIsListeningTitle(false);
+      return;
+    }
+    if (target === 'desc' && isListeningDesc) {
+      recognitionRef.current?.stop();
+      setIsListeningDesc(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-VE';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      if (target === 'title') {
+        setTitulo(transcript);
+        setIsListeningTitle(false);
+      } else {
+        setDescripcion(transcript);
+        setIsListeningDesc(false);
+      }
+    };
+
+    recognition.onerror = () => {
+      if (target === 'title') setIsListeningTitle(false);
+      else setIsListeningDesc(false);
+    };
+
+    recognition.onend = () => {
+      if (target === 'title') setIsListeningTitle(false);
+      else setIsListeningDesc(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    if (target === 'title') {
+      setIsListeningTitle(true);
+      setIsListeningDesc(false);
+    } else {
+      setIsListeningDesc(true);
+      setIsListeningTitle(false);
+    }
+  };
 
   // ==========================================
   // NOTIFICACIONES Y VOZ
@@ -315,24 +382,94 @@ export default function ActividadesPage() {
             className="glass-card p-4 space-y-3 animate-slide-up"
             id="form-actividad"
           >
-            <input
-              type="text"
-              placeholder="¿Qué necesitas hacer?"
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-              className="glass-input"
-              autoFocus
-              id="input-titulo-actividad"
-            />
-            <textarea
-              placeholder="Descripción (opcional)"
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              className="glass-input"
-              rows={2}
-              style={{ resize: 'none' }}
-              id="input-desc-actividad"
-            />
+            {/* Input de título con micrófono */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="¿Qué necesitas hacer?"
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
+                className="glass-input pr-14"
+                autoFocus
+                id="input-titulo-actividad"
+              />
+              {speechSupported && (
+                <button
+                  type="button"
+                  onClick={() => toggleDictado('title')}
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                    isListeningTitle ? 'animate-mic-pulse' : ''
+                  }`}
+                  style={{
+                    background: isListeningTitle
+                      ? 'rgba(239, 68, 68, 0.2)'
+                      : 'var(--surface-elevated)',
+                    color: isListeningTitle ? '#ef4444' : 'var(--actividades)',
+                    border: `1px solid ${
+                      isListeningTitle
+                        ? 'rgba(239, 68, 68, 0.4)'
+                        : 'var(--border)'
+                    }`,
+                  }}
+                >
+                  <Plus size={18} className={isListeningTitle ? 'hidden' : ''} style={{ transform: 'rotate(45deg)' }} />
+                </button>
+              )}
+            </div>
+
+            {isListeningTitle && (
+              <p
+                className="text-[10px] text-center animate-fade-in"
+                style={{ color: '#ef4444' }}
+              >
+                🎙️ Dictando el título... habla ahora
+              </p>
+            )}
+
+            {/* Input de descripción con micrófono */}
+            <div className="relative">
+              <textarea
+                placeholder="Descripción (opcional)"
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                className="glass-input pr-14"
+                rows={2}
+                style={{ resize: 'none' }}
+                id="input-desc-actividad"
+              />
+              {speechSupported && (
+                <button
+                  type="button"
+                  onClick={() => toggleDictado('desc')}
+                  className={`absolute right-2 bottom-3 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                    isListeningDesc ? 'animate-mic-pulse' : ''
+                  }`}
+                  style={{
+                    background: isListeningDesc
+                      ? 'rgba(239, 68, 68, 0.2)'
+                      : 'var(--surface-elevated)',
+                    color: isListeningDesc ? '#ef4444' : 'var(--actividades)',
+                    border: `1px solid ${
+                      isListeningDesc
+                        ? 'rgba(239, 68, 68, 0.4)'
+                        : 'var(--border)'
+                    }`,
+                  }}
+                >
+                  <Plus size={18} className={isListeningDesc ? 'hidden' : ''} style={{ transform: 'rotate(45deg)' }} />
+                </button>
+              )}
+            </div>
+
+            {isListeningDesc && (
+              <p
+                className="text-[10px] text-center animate-fade-in"
+                style={{ color: '#ef4444' }}
+              >
+                🎙️ Dictando la descripción... habla ahora
+              </p>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label

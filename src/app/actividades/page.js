@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Plus, Trash2, ArrowLeft, Bell, BellOff, Check,
-  Clock, Calendar, Volume2, ClipboardList, Mic, MicOff
+  Clock, Calendar, Volume2, ClipboardList, Mic, MicOff, Pencil
 } from 'lucide-react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
@@ -19,6 +19,7 @@ export default function ActividadesPage() {
   const [fecha, setFecha] = useState('');
   const [hora, setHora] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
   const [notificacionesPermitidas, setNotificacionesPermitidas] = useState(false);
   const workerRef = useRef(null);
   const alertasMostradasRef = useRef(new Set());
@@ -194,24 +195,68 @@ export default function ActividadesPage() {
     e.preventDefault();
     if (!titulo.trim() || !fecha || !hora) return;
 
-    const nueva = {
-      id: generarId(),
-      titulo: titulo.trim(),
-      descripcion: descripcion.trim(),
-      fecha,
-      hora,
-      completada: false,
-      recordatorio_activado: true,
-      created_at: new Date().toISOString(),
-    };
+    if (editId) {
+      const nuevaLista = items.map((item) =>
+        item.id === editId
+          ? {
+              ...item,
+              titulo: titulo.trim(),
+              descripcion: descripcion.trim(),
+              fecha,
+              hora,
+            }
+          : item
+      );
+      setItems(nuevaLista);
+      sincronizarConNube('actividades', {
+        id: editId,
+        titulo: titulo.trim(),
+        descripcion: descripcion.trim(),
+        fecha,
+        hora,
+      });
+      setEditId(null);
+    } else {
+      const nueva = {
+        id: generarId(),
+        titulo: titulo.trim(),
+        descripcion: descripcion.trim(),
+        fecha,
+        hora,
+        completada: false,
+        recordatorio_activado: true,
+        created_at: new Date().toISOString(),
+      };
 
-    const nuevaLista = [nueva, ...items];
-    setItems(nuevaLista);
-    sincronizarConNube('actividades', nueva);
+      const nuevaLista = [nueva, ...items];
+      setItems(nuevaLista);
+      sincronizarConNube('actividades', nueva);
+    }
 
     setTitulo('');
     setDescripcion('');
+    const hoy = new Date().toISOString().split('T')[0];
+    setFecha(hoy);
     setHora('');
+    setShowForm(false);
+  };
+
+  const iniciarEdicion = (item) => {
+    setTitulo(item.titulo);
+    setDescripcion(item.descripcion || '');
+    setFecha(item.fecha);
+    setHora(item.hora);
+    setEditId(item.id);
+    setShowForm(true);
+  };
+
+  const cancelarFormulario = () => {
+    setTitulo('');
+    setDescripcion('');
+    const hoy = new Date().toISOString().split('T')[0];
+    setFecha(hoy);
+    setHora('');
+    setEditId(null);
     setShowForm(false);
   };
 
@@ -515,11 +560,11 @@ export default function ActividadesPage() {
                 }}
               >
                 <Plus size={18} />
-                Crear
+                {editId ? 'Guardar' : 'Crear'}
               </button>
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={cancelarFormulario}
                 className="btn-secondary"
               >
                 Cancelar
@@ -547,6 +592,7 @@ export default function ActividadesPage() {
                   onToggleRecordatorio={toggleRecordatorio}
                   onDelete={eliminarItem}
                   onTestVoice={probarVoz}
+                  onEdit={iniciarEdicion}
                 />
               ))}
             </div>
@@ -572,6 +618,7 @@ export default function ActividadesPage() {
                   onToggleRecordatorio={toggleRecordatorio}
                   onDelete={eliminarItem}
                   onTestVoice={probarVoz}
+                  onEdit={iniciarEdicion}
                 />
               ))}
             </div>
@@ -613,7 +660,7 @@ export default function ActividadesPage() {
 // ==========================================
 // Componente de tarjeta de actividad
 // ==========================================
-function ActivityCard({ item, index, onToggle, onToggleRecordatorio, onDelete, onTestVoice }) {
+function ActivityCard({ item, index, onToggle, onToggleRecordatorio, onDelete, onTestVoice, onEdit }) {
   return (
     <div
       className={`glass-card p-3 animate-fade-in-up stagger-${Math.min(index + 1, 5)}`}
@@ -681,6 +728,14 @@ function ActivityCard({ item, index, onToggle, onToggleRecordatorio, onDelete, o
 
         {/* Actions */}
         <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={() => onEdit(item)}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'var(--text-secondary)' }}
+            title="Editar"
+          >
+            <Pencil size={14} />
+          </button>
           <button
             onClick={() => onTestVoice(item.titulo)}
             className="p-1.5 rounded-lg transition-colors"

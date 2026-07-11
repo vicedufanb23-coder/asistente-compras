@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, Trash2, Scale, ArrowLeft, DollarSign } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Scale, ArrowLeft, DollarSign, Mic, MicOff } from 'lucide-react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
 import StatusBar from '@/components/StatusBar';
@@ -17,6 +17,9 @@ export default function VerdurasPage() {
   const [pesoKg, setPesoKg] = useState('');
   const [tasaBcv, setTasaBcv] = useState(0);
   const [showForm, setShowForm] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const recognitionRef = useRef(null);
 
   // Cargar datos locales al montar
   useEffect(() => {
@@ -24,7 +27,51 @@ export default function VerdurasPage() {
     setItems(saved);
 
     obtenerTasaBCV().then((r) => setTasaBcv(r.tasa));
+
+    // Check speech recognition support
+    const SpeechRecognition =
+      typeof window !== 'undefined' &&
+      (window.SpeechRecognition || window.webkitSpeechRecognition);
+    setSpeechSupported(!!SpeechRecognition);
   }, []);
+
+  // ==========================================
+  // SPEECH-TO-TEXT (Dictado por voz nativo)
+  // ==========================================
+  const toggleDictado = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-VE';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setNombre(transcript);
+      setIsListening(false);
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  };
 
   // Guardar en local cada vez que cambia la lista
   useEffect(() => {
@@ -132,15 +179,50 @@ export default function VerdurasPage() {
             className="glass-card p-4 space-y-3 animate-slide-up"
             id="form-verdura"
           >
-            <input
-              type="text"
-              placeholder="Nombre (ej: Tomate, Cebolla)"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              className="glass-input"
-              autoFocus
-              id="input-nombre-verdura"
-            />
+            {/* Input de nombre con micrófono */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Nombre (ej: Tomate, Cebolla)"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                className="glass-input pr-14"
+                autoFocus
+                id="input-nombre-verdura"
+              />
+              {speechSupported && (
+                <button
+                  type="button"
+                  onClick={toggleDictado}
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                    isListening ? 'animate-mic-pulse' : ''
+                  }`}
+                  style={{
+                    background: isListening
+                      ? 'rgba(239, 68, 68, 0.2)'
+                      : 'var(--surface-elevated)',
+                    color: isListening ? '#ef4444' : 'var(--verduras)',
+                    border: `1px solid ${
+                      isListening
+                        ? 'rgba(239, 68, 68, 0.4)'
+                        : 'var(--border)'
+                    }`,
+                  }}
+                  id="btn-mic-verdura"
+                >
+                  {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                </button>
+              )}
+            </div>
+
+            {isListening && (
+              <p
+                className="text-xs text-center animate-fade-in"
+                style={{ color: '#ef4444' }}
+              >
+                🎙️ Escuchando... habla ahora
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label

@@ -54,7 +54,7 @@ export default function HomePage() {
           </div>
           <div>
             <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              Súper Compras
+              Calculando Todo
             </h1>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               Calculadora inteligente de compras

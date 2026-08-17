@@ -1,14 +1,14 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Súper Compras PWA",
+  title: "Calculando Todo PWA",
   description:
     "Calculadora inteligente de compras con dictado por voz, tasa BCV y recordatorios. 100% offline, hecha para Venezuela.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Súper Compras",
+    title: "Calculando Todo",
   },
   formatDetection: {
     telephone: false,

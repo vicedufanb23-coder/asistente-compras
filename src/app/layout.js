@@ -1,4 +1,5 @@
 import "./globals.css";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 export const metadata = {
   title: "Calculando Todo PWA",
@@ -44,7 +45,10 @@ export default function RootLayout({ children }) {
           crossOrigin="anonymous"
         />
       </head>
-      <body className="min-h-full bg-mesh safe-top">{children}</body>
+      <body className="min-h-full bg-mesh safe-top">
+        {children}
+        <ServiceWorkerRegister />
+      </body>
     </html>
   );
 }

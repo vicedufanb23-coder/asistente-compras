@@ -150,6 +150,17 @@ export default function ActividadesPage() {
       worker.postMessage({ type: 'UPDATE_ACTIVIDADES', data: saved });
       worker.postMessage({ type: 'START' });
 
+      // === SYNC WITH SERVICE WORKER ===
+      // Leer actividades guardadas y enviarlas al SW para background checking
+      if (typeof serviceWorker !== 'undefined') {
+        navigator.serviceWorker.ready.then((reg) => {
+          reg.active.postMessage({
+            type: 'UPDATE_ACTIVIDADES',
+            actividad: saved,
+          });
+        });
+      }
+
       workerRef.current = worker;
 
       return () => {

@@ -2,14 +2,14 @@ import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 export const metadata = {
-  title: "Calculando Todo PWA",
+  title: "De Shopping en VZLA PWA",
   description:
     "Calculadora inteligente de compras con dictado por voz, tasa BCV y recordatorios. 100% offline, hecha para Venezuela.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Calculando Todo",
+    title: "De Shopping en VZLA",
   },
   formatDetection: {
     telephone: false,

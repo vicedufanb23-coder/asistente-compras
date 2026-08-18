@@ -152,12 +152,24 @@ export default function ActividadesPage() {
 
       // === SYNC WITH SERVICE WORKER ===
       // Leer actividades guardadas y enviarlas al SW para background checking
+      // Esto es crítico: el SW necesita los datos para verificar horas aun cuando la app esté cerrada
       if (typeof serviceWorker !== 'undefined') {
         navigator.serviceWorker.ready.then((reg) => {
-          reg.active.postMessage({
-            type: 'UPDATE_ACTIVIDADES',
-            actividad: saved,
-          });
+          // Solicitar permiso de notificación si aún no se ha hecho
+          if (typeof Notification !== 'undefined') {
+            Notification.requestPermission().then((permission) => {
+              // Enviar actividades sin importar el permiso (el SW las necesita para verificar)
+              reg.active.postMessage({
+                type: 'UPDATE_ACTIVIDADES',
+                actividad: saved,
+              });
+            });
+          } else {
+            reg.active.postMessage({
+              type: 'UPDATE_ACTIVIDADES',
+              actividad: saved,
+            });
+          }
         });
       }
 

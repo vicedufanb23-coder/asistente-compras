@@ -268,31 +268,6 @@ export default function ActividadesPage() {
   };
 
   // ==========================================
-  // FUNCIÓN "SORPRÉ ME" - Actividad aleatoria del día
-  // ==========================================
-  const sorpendeme = () => {
-    const hoy = new Date().toISOString().split('T')[0];
-    const actividadesHoy = items.filter((i) => i.fecha === hoy && i.recordatorio_activado);
-    if (actividadesHoy.length === 0) return;
-    
-    // Seleccionar una actividad aleatoria
-    const aleatoria = actividadesHoy[Math.floor(Math.random() * actividadesHoy.length)];
-    
-    // Asegurar que el recordatorio esté activado
-    setItems(
-      items.map((item) =>
-        item.id === aleatoria.id
-          ? { ...item, recordatorio_activado: true }
-          : item
-      )
-    );
-    
-    // Mostrar alerta inmediata
-    lanzarNotificacion(aleatoria);
-    hablar(`Jefe disculpe le recuerdo: Sorpréndete: ${aleatoria.titulo}`);
-  };
-
-  // ==========================================
   // CRUD
   // ==========================================
   const agregarActividad = (e) => {
@@ -702,9 +677,8 @@ export default function ActividadesPage() {
                   onDelete={eliminarItem}
                   onTestVoice={probarVoz}
                   onEdit={iniciarEdicion}
-                  onSorprendeme={sorpendeme}
                 />
-              ))}
+              )}
             </div>
           </>
         )}
@@ -729,7 +703,6 @@ export default function ActividadesPage() {
                   onDelete={eliminarItem}
                   onTestVoice={probarVoz}
                   onEdit={iniciarEdicion}
-                  onSorprendeme={sorpendeme}
                 />
               ))}
             </div>
@@ -771,7 +744,7 @@ export default function ActividadesPage() {
 // ==========================================
 // Componente de tarjeta de actividad
 // ==========================================
-function ActivityCard({ item, index, onToggle, onToggleRecordatorio, onDelete, onTestVoice, onEdit, onSorprendeme }) {
+function ActivityCard({ item, index, onToggle, onToggleRecordatorio, onDelete, onTestVoice, onEdit }) {
   return (
     <div
       className={`glass-card p-3 animate-fade-in-up stagger-${Math.min(index + 1, 5)}`}
@@ -874,14 +847,7 @@ function ActivityCard({ item, index, onToggle, onToggleRecordatorio, onDelete, o
             ) : (
               <BellOff size={14} />
             )}
-          </button>
-          <button
-            onClick={() => onSorprendeme()}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ color: 'var(--accent)' }}
-            title="Sorpréndeme"
-          >
-            <Bell size={14} />
+</button>
           </button>
           <button
             onClick={() => onDelete(item.id)}

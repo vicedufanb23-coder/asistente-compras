@@ -11,6 +11,7 @@ import StatusBar from '@/components/StatusBar';
 import { guardarLocal, leerLocal, generarId, sincronizarConNube } from '@/lib/storage';
 
 const STORAGE_KEY = 'actividades_lista';
+const STORAGE_KEY_ALERTS = 'actividad_alerta_ultima';
 
 export default function ActividadesPage() {
   const [items, setItems] = useState([]);
@@ -22,14 +23,60 @@ export default function ActividadesPage() {
   const [editId, setEditId] = useState(null);
   const [notificacionesPermitidas, setNotificacionesPermitidas] = useState(false);
   const workerRef = useRef(null);
-  const alertasMostradasRef = useRef(new Set());
+  const alertasMostradasRef = useRef(new Map());
 
   const [isListeningTitle, setIsListeningTitle] = useState(false);
   const [isListeningDesc, setIsListeningDesc] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const recognitionRef = useRef(null);
 
-  // Inicializar Worker y cargar datos
+  // ==========================================
+  // Cargar estado persistente de alertas al iniciar
+  // ==========================================
+  useEffect(() => {
+    const guardado = localStorage.getItem(STORAGE_KEY_ALERTS);
+    if (guardado) {
+      try {
+        const datos = JSON.parse(guardado);
+        // Convertir array de [key, timestamp] a Map
+        alertasMostradasRef.current = new Map(datos);
+        // Limpiar entradas viejas (más de 24 horas)
+        const ahora = Date.now();
+        const filtrado = new Map();
+        for (const [key, timestamp] of alertasMostradasRef.current) {
+          if (ahora - timestamp < 24 * 60 * 60 * 1000) {
+            filtrado.set(key, timestamp);
+          }
+        }
+        if (filtrado.size !== alertasMostradasRef.current.size) {
+          alertasMostradasRef.current = filtrado;
+          guardarLocalStorageAlerts();
+        }
+      } catch (e) {
+        console.error('Error parsing alerts storage', e);
+        alertasMostradasRef.current = new Map();
+      }
+    } else {
+      alertasMostradasRef.current = new Map();
+    }
+  }, []);
+
+  // Guardar estado de alertas en localStorage cuando cambia
+  useEffect(() => {
+    if (alertasMostradasRef.current) {
+      guardarLocalStorageAlerts();
+    }
+  }, [alertasMostradasRef]);
+
+  const guardarLocalStorageAlerts = () => {
+    if (alertasMostradasRef.current) {
+      localStorage.setItem(STORAGE_KEY_ALERTS, JSON.stringify(Array.from(alertasMostradasRef.current.entries())));
+    }
+  };
+
+  // ==========================================
+  // INICIALIZAR WORKER Y CARGAR DATOS
+  // ==========================================
   useEffect(() => {
     const saved = leerLocal(STORAGE_KEY, []);
     setItems(saved);
@@ -61,10 +108,24 @@ export default function ActividadesPage() {
         const { type, actividad } = event.data;
 
         if (type === 'RECORDATORIO') {
-          // Evitar alertas duplicadas en el mismo minuto
+          // Verificar deduplicación con persistencia en localStorage
           const alertaKey = `${actividad.id}-${actividad.hora}`;
-          if (alertasMostradasRef.current.has(alertaKey)) return;
-          alertasMostradasRef.current.add(alertaKey);
+          const ultimaHora = alertasMostradasRef.current.get(alertaKey);
+
+          // Si ya se avisó hace menos de 2 minutos, no volver a avisar
+          if (ultimaHora) {
+            const tiempoDesdeUltima = Date.now() - ultimaHora;
+            if (tiempoDesdeUltima < 120000) {
+              // Ya avisó hace menos de 2 min, pero actualizar timestamp para persistir
+              alertasMostradasRef.current.set(alertaKey, Date.now());
+              guardarLocalStorageAlerts();
+              return;
+            } else {
+              // La entrada es vieja, removerla
+              alertasMostradasRef.current.delete(alertaKey);
+              guardarLocalStorageAlerts();
+            }
+          }
 
           // Lanzar notificación nativa
           lanzarNotificacion(actividad);
@@ -72,9 +133,16 @@ export default function ActividadesPage() {
           // Leer en voz alta
           hablar(`Recordatorio: ${actividad.titulo}`);
 
-          // Limpiar duplicados después de 2 minutos
+          // Registrar esta alerta con marca de tiempo actual
+          alertasMostradasRef.current.set(alertaKey, Date.now());
+
+          // Guardar inmediatamente en localStorage
+          guardarLocalStorageAlerts();
+
+          // Limpiar duplicados después de 2 minutos (persistente)
           setTimeout(() => {
             alertasMostradasRef.current.delete(alertaKey);
+            guardarLocalStorageAlerts();
           }, 120000);
         }
       };
@@ -189,6 +257,31 @@ export default function ActividadesPage() {
   };
 
   // ==========================================
+  // FUNCIÓN "SORPRÉ ME" - Actividad aleatoria del día
+  // ==========================================
+  const sorpendeme = () => {
+    const hoy = new Date().toISOString().split('T')[0];
+    const actividadesHoy = items.filter((i) => i.fecha === hoy && i.recordatorio_activado);
+    if (actividadesHoy.length === 0) return;
+    
+    // Seleccionar una actividad aleatoria
+    const aleatoria = actividadesHoy[Math.floor(Math.random() * actividadesHoy.length)];
+    
+    // Asegurar que el recordatorio esté activado
+    setItems(
+      items.map((item) =>
+        item.id === aleatoria.id
+          ? { ...item, recordatorio_activado: true }
+          : item
+      )
+    );
+    
+    // Mostrar alerta inmediata
+    lanzarNotificacion(aleatoria);
+    hablar(`Sorpréndete: ${aleatoria.titulo}`);
+  };
+
+  // ==========================================
   // CRUD
   // ==========================================
   const agregarActividad = (e) => {
@@ -280,6 +373,11 @@ export default function ActividadesPage() {
 
   const eliminarItem = (id) => {
     setItems(items.filter((item) => item.id !== id));
+    // También limpiar la alerta guardada para este item
+    if (alertasMostradasRef.current) {
+      alertasMostradasRef.current.delete(`${id}-${new Date().toISOString().split('T')[0]}`);
+      guardarLocalStorageAlerts();
+    }
   };
 
   const limpiarCompletadas = () => {
@@ -593,6 +691,7 @@ export default function ActividadesPage() {
                   onDelete={eliminarItem}
                   onTestVoice={probarVoz}
                   onEdit={iniciarEdicion}
+                  onSorprendeme={sorpendeme}
                 />
               ))}
             </div>
@@ -619,6 +718,7 @@ export default function ActividadesPage() {
                   onDelete={eliminarItem}
                   onTestVoice={probarVoz}
                   onEdit={iniciarEdicion}
+                  onSorprendeme={sorpendeme}
                 />
               ))}
             </div>
@@ -660,7 +760,7 @@ export default function ActividadesPage() {
 // ==========================================
 // Componente de tarjeta de actividad
 // ==========================================
-function ActivityCard({ item, index, onToggle, onToggleRecordatorio, onDelete, onTestVoice, onEdit }) {
+function ActivityCard({ item, index, onToggle, onToggleRecordatorio, onDelete, onTestVoice, onEdit, onSorprendeme }) {
   return (
     <div
       className={`glass-card p-3 animate-fade-in-up stagger-${Math.min(index + 1, 5)}`}
@@ -763,6 +863,14 @@ function ActivityCard({ item, index, onToggle, onToggleRecordatorio, onDelete, o
             ) : (
               <BellOff size={14} />
             )}
+          </button>
+          <button
+            onClick={() => onSorprendeme()}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'var(--accent)' }}
+            title="Sorpréndeme"
+          >
+            <Bell size={14} />
           </button>
           <button
             onClick={() => onDelete(item.id)}

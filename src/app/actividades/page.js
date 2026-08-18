@@ -131,7 +131,7 @@ export default function ActividadesPage() {
           lanzarNotificacion(actividad);
 
           // Leer en voz alta
-          hablar(`Recordatorio: ${actividad.titulo}`);
+          hablar(`Jefe disculpe le recuerdo: ${actividad.titulo}`);
 
           // Registrar esta alerta con marca de tiempo actual
           alertasMostradasRef.current.set(alertaKey, Date.now());
@@ -242,8 +242,8 @@ export default function ActividadesPage() {
   // ==========================================
   const lanzarNotificacion = (actividad) => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      new Notification('⏰ Recordatorio', {
-        body: actividad.titulo,
+      new Notification('Jefe disculpe le recuerdo: ⏰', {
+        body: `Jefe disculpe le recuerdo: ${actividad.titulo}`,
         icon: '/icons/icon-192x192.png',
         badge: '/icons/icon-72x72.png',
         tag: actividad.id,
@@ -289,7 +289,7 @@ export default function ActividadesPage() {
     
     // Mostrar alerta inmediata
     lanzarNotificacion(aleatoria);
-    hablar(`Sorpréndete: ${aleatoria.titulo}`);
+    hablar(`Jefe disculpe le recuerdo: Sorpréndete: ${aleatoria.titulo}`);
   };
 
   // ==========================================
@@ -398,7 +398,7 @@ export default function ActividadesPage() {
   };
 
   const probarVoz = (titulo) => {
-    hablar(`Recordatorio: ${titulo}`);
+    hablar(`Jefe disculpe le recuerdo: ${titulo}`);
   };
 
   // Separar hoy de otros días

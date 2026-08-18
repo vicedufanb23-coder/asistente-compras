@@ -8,6 +8,13 @@ let actividades = [];
 let intervalId = null;
 
 /**
+ * CONFIGURACIÓN
+ */
+const UMbral_MINUTOS_ANTICIPO = 10; // Ahora avisa 10 minutos antes
+const UMbral_MINUTOS_POSTERIO = 2;   // Y 2 minutos después (por si está exacta la hora)
+const INTERVALO_VERIFICACION = 20000; // Cada 20 segundos
+
+/**
  * Recibe mensajes del hilo principal
  */
 self.onmessage = function (event) {
@@ -20,8 +27,8 @@ self.onmessage = function (event) {
 
     case 'START':
       if (!intervalId) {
-        intervalId = setInterval(verificarRecordatorios, 30000); // Cada 30 segundos
-        // También verificar inmediatamente
+        intervalId = setInterval(verificarRecordatorios, INTERVALO_VERIFICACION);
+        // Verificar inmediatamente al iniciar
         verificarRecordatorios();
       }
       break;
@@ -40,12 +47,16 @@ self.onmessage = function (event) {
 
 /**
  * Verifica si alguna actividad necesita lanzar un recordatorio
+ * - Avisa UMbral_MINUTOS_ANTICIPO minutos antes de la hora
+ * - También avisa si ya pasó la hora (hasta UMbral_MINUTOS_POSTERIO minutos)
+ * - Envía mensaje al hilo principal; la deduplicación la maneja la página
  */
 function verificarRecordatorios() {
   const ahora = new Date();
   const horaActual = ahora.getHours().toString().padStart(2, '0');
   const minutosActual = ahora.getMinutes().toString().padStart(2, '0');
   const fechaActual = ahora.toISOString().split('T')[0]; // YYYY-MM-DD
+  const minutosActualesNum = ahora.getMinutes();
 
   for (const actividad of actividades) {
     // Solo actividades no completadas con recordatorio activado
@@ -54,10 +65,23 @@ function verificarRecordatorios() {
     // Verificar si la fecha coincide
     if (actividad.fecha !== fechaActual) continue;
 
-    // Verificar si la hora coincide (margen de 1 minuto)
+    // Verificar si la hora está dentro de la ventana de alerta
     const [horaAct, minAct] = actividad.hora.split(':');
+    const horaActNum = parseInt(horaAct, 10);
+    const minActNum = parseInt(minAct, 10);
+    const minutosActualesTotales = horaActual * 60 + minutosActualesNum;
+    const minutosActProgramados = horaActNum * 60 + minActNum;
 
-    if (horaAct === horaActual && minAct === minutosActual) {
+    // Calcular diferencia en minutos (positivo = falta, negativo = ya pasó)
+    const diferencia = minutosActProgramados - minutosActualesTotales;
+
+    // Avisar si falta entre 1 y UMbral_MINUTOS_ANTICIPO minutos,
+    // O si ya pasó entre 0 y UMbral_MINUTOS_POSTERIO minutos
+    const debeAvisar = 
+      (diferencia >= 1 && diferencia <= UMbral_MINUTOS_ANTICIPO) ||
+      (diferencia >= -UMbral_MINUTOS_POSTERIO && diferencia <= 0);
+
+    if (debeAvisar) {
       // Enviar alerta al hilo principal
       self.postMessage({
         type: 'RECORDATORIO',

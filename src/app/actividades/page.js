@@ -92,12 +92,15 @@ export default function ActividadesPage() {
     setSpeechSupported(!!SpeechRecognition);
 
     // Pedir permisos de notificación
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission().then((perm) => {
-        setNotificacionesPermitidas(perm === 'granted');
-      });
-    } else if (typeof Notification !== 'undefined') {
-      setNotificacionesPermitidas(Notification.permission === 'granted');
+    if (typeof Notification !== 'undefined') {
+      // Solicitar permiso solo si no está ya otorgado
+      if (Notification.permission !== 'granted') {
+        Notification.requestPermission().then((perm) => {
+          setNotificacionesPermitidas(perm === 'granted');
+        });
+      } else {
+        setNotificacionesPermitidas(true);
+      }
     }
 
     // Iniciar Web Worker para recordatorios
